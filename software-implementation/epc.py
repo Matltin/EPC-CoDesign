@@ -177,8 +177,8 @@ def epc_optimize(
     # evaluate initial
     fitness = evaluate_population(obj_func, X)
     best_idx = int(np.argmin(fitness))
-    g_best_x = X[best_idx].copy()
-    g_best_f = float(fitness[best_idx])
+    best_x = X[best_idx].copy()
+    best_f = float(fitness[best_idx])
 
     # پارامترهای پویا
     mu = float(config.mu0)
@@ -186,21 +186,24 @@ def epc_optimize(
 
     # history
     history = np.empty(config.Tmax + 1, dtype=float)
-    history[0] = g_best_f
+    history[0] = best_f
 
     # چاپ هدر مثل نمونه
     if config.log_enabled:
-        logger(epc_header_block(config.N, D, config.Tmax, init_f=g_best_f))
+        logger(epc_header_block(config.N, D, config.Tmax, init_f=best_f))
 
     # main loop
     it = 0
     for it in range(1, config.Tmax + 1):
         # --- آپدیت جمعیت با mu,m فعلی ---
         for i in range(config.N):
+            if i == best_idx:
+                continue
+
             X[i] = update_penguin_method_A(
                 rng=rng,
                 x_i=X[i],
-                x_best=g_best_x,
+                x_best=best_x,
                 mu=mu,
                 m=m,
                 a=config.a,
@@ -213,21 +216,21 @@ def epc_optimize(
         # --- ارزیابی ---
         fitness = evaluate_population(obj_func, X)
 
-        # --- آپدیت بهترین ---
+        # --- آپدیت بهترین (فقط بهترین همین نسل، بدون مقایسه با گذشته) ---
         curr_best_idx = int(np.argmin(fitness))
         curr_best_f = float(fitness[curr_best_idx])
-        if curr_best_f < g_best_f:
-            g_best_f = curr_best_f
-            g_best_x = X[curr_best_idx].copy()
+        best_idx = curr_best_idx
+        best_f = curr_best_f
+        best_x = X[curr_best_idx].copy()
 
-        history[it] = g_best_f
+        history[it] = best_f
 
         # --- چاپ لاگ Iter مثل نمونه ---
         if config.log_enabled and (it % max(1, config.log_every) == 0):
-            logger(epc_iter_line(it, config.Tmax, best=g_best_f, mu=mu, mutation=m))
+            logger(epc_iter_line(it, config.Tmax, best=best_f, mu=mu, mutation=m))
 
         # --- شرط توقف ---
-        if g_best_f <= config.epsilon:
+        if best_f <= config.epsilon:
             history = history[: it + 1]
             break
 
@@ -251,8 +254,8 @@ def epc_optimize(
     logger.close()
 
     return EPCResult(
-        best_x=g_best_x,
-        best_f=g_best_f,
+        best_x=best_x,
+        best_f=best_f,
         history_best_f=history,
         elapsed_sec=float(elapsed),
         meta=meta
