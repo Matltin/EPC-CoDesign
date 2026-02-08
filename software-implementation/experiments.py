@@ -2,161 +2,109 @@
 """
 experiments.py
 --------------
-اجرای آزمایش‌ها روی بنچمارک‌ها و تولید خروجی قابل ارائه.
+اجرای آزمایش‌ها و چاپ لاگ مطابق نمونه out.txt
 
-این فایل باید:
-- EPC را روی Sphere و Rosenbrock اجرا کند
-- تاریخچه best_f را برای نمودار همگرایی نگه دارد
-- (اختیاری) چند اجرا با seedهای مختلف بزند و آمار بدهد
+خروجی شامل:
+1) چند بلاک EPC (برای هر run)
+2) در انتها: EPC Benchmark Summary
 """
 
 from __future__ import annotations
 
-from typing import Callable, Any, List, Dict
+from typing import Callable, Any, Dict, List, Tuple
 import numpy as np
-import matplotlib.pyplot as plt
 
 from epc import EPCConfig, epc_optimize, EPCResult
 from objectives import sphere, rosenbrock
+from utils import SimpleLogger, epc_summary_banner
 
 
 # ------------------------------------------------------------
-# اجرای یک آزمایش و نمایش نتایج
+# اجرای چند Run برای یک (Objective, D)
 # ------------------------------------------------------------
-def run_single_experiment(
+def run_case(
     name: str,
     obj_func: Callable[[np.ndarray], float],
     D: int,
     lb: Any,
     ub: Any,
     cfg: EPCConfig,
-    seed: int
-) -> EPCResult:
+    seeds: List[int],
+) -> List[EPCResult]:
     """
-    یک اجرا از EPC برای یک تابع هدف.
-
-    کارهایی که انجام می‌دهد:
-    - epc_optimize را صدا می‌زند
-    - نتیجه را چاپ می‌کند
-    - history را برمی‌گرداند تا بتوانیم plot کنیم
+    یک کیس (مثلاً Sphere با D=10) را چند بار اجرا می‌کند.
+    چاپ‌های Iter و هدر داخل epc_optimize انجام می‌شود.
     """
-    res = epc_optimize(obj_func=obj_func, D=D, lb=lb, ub=ub, config=cfg, seed=seed)
-
-    print(f"\n=== {name} ===")
-    print("best_f:", res.best_f)
-    print("best_x (first 5 dims):", res.best_x[:5] if res.best_x.size >= 5 else res.best_x)
-    print("elapsed_sec:", res.elapsed_sec)
-    print("meta:", res.meta)
-
-    return res
-
-
-# ------------------------------------------------------------
-# چند اجرا (برای گزارش آماری)
-# ------------------------------------------------------------
-def run_multiple_trials(
-    name: str,
-    obj_func: Callable[[np.ndarray], float],
-    D: int,
-    lb: Any,
-    ub: Any,
-    cfg: EPCConfig,
-    seeds: List[int]
-) -> Dict[str, Any]:
-    """
-    چند بار اجرای EPC با seedهای مختلف و گرفتن آمار.
-
-    خروجی مناسب برای گزارش پروژه:
-    - mean/std/min/max از best_f
-    """
-    best_fs = []
     results: List[EPCResult] = []
-
     for s in seeds:
         res = epc_optimize(obj_func=obj_func, D=D, lb=lb, ub=ub, config=cfg, seed=s)
         results.append(res)
-        best_fs.append(res.best_f)
-
-    best_fs = np.array(best_fs, dtype=float)
-
-    summary = {
-        "name": name,
-        "seeds": seeds,
-        "mean_best_f": float(np.mean(best_fs)),
-        "std_best_f": float(np.std(best_fs)),
-        "min_best_f": float(np.min(best_fs)),
-        "max_best_f": float(np.max(best_fs)),
-        "best_f_values": best_fs,
-        "results": results
-    }
-    return summary
+    return results
 
 
 # ------------------------------------------------------------
-# رسم نمودار همگرایی
+# ساخت یک خط Summary مثل نمونه
 # ------------------------------------------------------------
-def plot_convergence(title: str, history: np.ndarray) -> None:
-    """
-    رسم نمودار best_f برحسب iteration.
-    """
-    plt.figure()
-    plt.plot(history)
-    plt.title(title)
-    plt.xlabel("Iteration")
-    plt.ylabel("Best f(x)")
-    plt.grid(True)
+def summary_line(name: str, D: int, results: List[EPCResult]) -> str:
+    best_fs = np.array([r.best_f for r in results], dtype=float)
+    mean = float(best_fs.mean())
+    std = float(best_fs.std(ddof=0))
+    best = float(best_fs.min())
+    worst = float(best_fs.max())
+    total_time = float(sum(r.elapsed_sec for r in results))
+
+    # دقیقاً شبیه نمونه: mean به صورت e با 6 رقم، std با 3 رقم، time با 3 رقم اعشار
+    return (
+        f"{name:<10} | D={D:4d} | runs={len(results):2d} | "
+        f"mean={mean:.6e} ± {std:.3e} | best={best:.6e} | worst={worst:.6e} | time={total_time:.3f}s"
+    )
 
 
 # ------------------------------------------------------------
-# نقطه شروع اجرای فایل
+# main
 # ------------------------------------------------------------
 if __name__ == "__main__":
-    # تنظیمات الگوریتم (می‌توانی تغییر بدهی)
+    # اگر می‌خواهی دقیقاً مثل out.txt خروجی در فایل ذخیره شود:
+    # - log_path را "out.txt" بگذار
+    # - توجه: append می‌کند (هر بار اجرا، ته فایل اضافه می‌شود)
+    LOG_PATH = "out.txt"   # یا None برای فقط کنسول
+
+    # تنظیمات مطابق سبک نمونه out.txt
     cfg = EPCConfig(
-        N=25,
-        Tmax=150,
-        epsilon=1e-10,
-        verbose=True  # برای دیدن روند
+        N=20,
+        Tmax=100,
+        epsilon=1e-12,
+        mu0=0.05,
+        m0=0.05,           # در نمونه mutation هم 0.050 شروع می‌شود
+        mu_decay=0.99,
+        m_decay=0.99,
+        log_enabled=True,
+        log_every=1,
+        log_path=LOG_PATH,
     )
 
-    # 1) Sphere
-    res_sphere = run_single_experiment(
-        name="Sphere",
-        obj_func=sphere,
-        D=10,
-        lb=-5.0,
-        ub=5.0,
-        cfg=cfg,
-        seed=42
-    )
-    plot_convergence("EPC Convergence - Sphere", res_sphere.history_best_f)
+    # Logger برای Summary انتهایی (هم کنسول هم فایل)
+    final_logger = SimpleLogger(LOG_PATH)
 
-    # 2) Rosenbrock
-    res_rosen = run_single_experiment(
-        name="Rosenbrock",
-        obj_func=rosenbrock,
-        D=5,
-        lb=-2.0,
-        ub=2.0,
-        cfg=cfg,
-        seed=7
-    )
-    plot_convergence("EPC Convergence - Rosenbrock", res_rosen.history_best_f)
+    # تعریف کیس‌ها (مثل نمونه می‌تونی D=10 و D=100 بزنی)
+    seeds = [0, 1, 2]  # runs=3 مثل out.txt
 
-    # (اختیاری) چند اجرا برای آمار
-    summary = run_multiple_trials(
-        name="Sphere (multi-trial)",
-        obj_func=sphere,
-        D=10,
-        lb=-5.0,
-        ub=5.0,
-        cfg=cfg,
-        seeds=[0, 1, 2, 3, 4]
-    )
-    print("\n=== Multi-trial summary ===")
-    print("mean_best_f:", summary["mean_best_f"])
-    print("std_best_f :", summary["std_best_f"])
-    print("min_best_f :", summary["min_best_f"])
-    print("max_best_f :", summary["max_best_f"])
+    cases: List[Tuple[str, Callable[[np.ndarray], float], int, Any, Any]] = [
+        ("Sphere", sphere, 10, -5.0, 5.0),
+        # ("Sphere", sphere, 100, -5.0, 5.0),
+        # ("Rosenbrock", rosenbrock, 10, -2.0, 2.0),
+        # ("Rosenbrock", rosenbrock, 100, -2.0, 2.0),
+    ]
 
-    plt.show()
+    all_results: List[Tuple[str, int, List[EPCResult]]] = []
+    for name, func, D, lb, ub in cases:
+        results = run_case(name, func, D, lb, ub, cfg, seeds)
+        all_results.append((name, D, results))
+
+    # چاپ Summary مثل نمونه
+    final_logger("")
+    final_logger(epc_summary_banner())
+    for name, D, results in all_results:
+        final_logger(summary_line(name, D, results))
+
+    final_logger.close()
