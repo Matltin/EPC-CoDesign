@@ -73,11 +73,12 @@ if __name__ == "__main__":
     cfg = EPCConfig(
         N=20,
         Tmax=100,
-        epsilon=1e-12,
-        mu0=0.05,
-        m0=0.05,           # در نمونه mutation هم 0.050 شروع می‌شود
+        mu0=0.5,
+        m0=0.5,
         mu_decay=0.99,
         m_decay=0.99,
+        update_method="B",
+        pairs_per_penguin=6,
         log_enabled=True,
         log_every=1,
         log_path=LOG_PATH,
