@@ -14,6 +14,12 @@ Method A_R:
 - شعاع آپدیت می‌شود (بر اساس فاصله و Q)
 - پیچیدگی تقریبی: O(T * N * D^2)
 
+Method A_improved:
+- آپدیت مارپیچی روی تمام جفت‌بعدها با ذخیره تغییرات در ماتریس
+- شعاع آپدیت می‌شود (بر اساس فاصله و Q)
+- میانگین‌گیری تغییرات
+- پیچیدگی تقریبی: O(T * N * D^2)
+
 Method B:
 - آپدیت مارپیچی فقط روی K جفت‌بعد تصادفی در هر پنگوئن
 - شعاع ثابت (فرمول استاندارد)
@@ -80,6 +86,7 @@ class EPCConfig:
     # ----------------------------
     # "A" = تمام جفت‌بعدها + شعاع ثابت
     # "A_R" = تمام جفت‌بعدها + شعاع آپدیت می‌شود
+    # "A_improved" = تمام جفت‌بعدها + شعاع آپدیت + ذخیره تغییرات و میانگین‌گیری
     # "B" = فقط K جفت‌بعد تصادفی + شعاع ثابت
     # "B_R" = فقط K جفت‌بعد تصادفی + شعاع آپدیت می‌شود
     update_method: str = "A"
@@ -354,6 +361,65 @@ def update_penguin_method_A_R(
 
 
 # ============================================================
+# Method A_improved - شعاع آپدیت + ذخیره تغییرات و میانگین‌گیری
+# ============================================================
+
+def update_penguin_method_A_improved(
+    rng: np.random.Generator,
+    x_i: np.ndarray,
+    x_best: np.ndarray,
+    mu: float,
+    m: float,
+    a: float,
+    b: float,
+    LB: np.ndarray,
+    UB: np.ndarray,
+    tiny: float
+) -> np.ndarray:
+    """
+    به‌روزرسانی یک فرد با روش بهبودیافته (با شعاع متغیر):
+    - ذخیره تغییرات در هر بعد و ترکیب آنها
+    - شعاع داینامیک (به‌روز رسانی بر اساس فاصله و فاصله از بهترین)
+    """
+    D = x_i.shape[0]
+    x_new = x_i.copy()
+    
+    # ماتریس تغییرات برای هر بعد
+    delta_matrix = np.zeros((D, D))
+    
+    # (1) فاصله تا بهترین
+    dist = float(np.linalg.norm(x_best - x_new, ord=2))
+    
+    # (2) محاسبه Q
+    Q = float(np.exp(-mu * dist))
+    Q = float(np.clip(Q, tiny, 1.0))
+
+    # (3) مارپیچ روی تمام جفت‌بعدها با تغییر شعاع
+    if D >= 2:
+        for p in range(D - 1):
+            for q in range(p + 1, D):
+                temp_x = x_new.copy()
+                # فرض کن این تابع همون کار مارپیچ رو انجام میده اما شعاع رو هم تنظیم می‌کنه
+                _spiral_update_on_pair_with_radius(temp_x, x_best, p, q, Q, a, b, tiny)
+                
+                # ذخیره تغییرات برای ابعاد p و q
+                delta_matrix[p, p] += (temp_x[p] - x_new[p])
+                delta_matrix[q, q] += (temp_x[q] - x_new[q])
+
+    # (4) اعمال تغییرات نهایی با میانگین‌گیری
+    for p in range(D):
+        x_new[p] += delta_matrix[p, p] / max(1, D-1)  # نرمال‌سازی
+
+    # (5) نویز/Mutation
+    u = rng.uniform(-1.0, 1.0, size=D)
+    x_new = x_new + (m * u)
+
+    # (6) clip
+    x_new = clip_to_bounds(x_new, LB, UB)
+    return x_new
+
+
+# ============================================================
 # Method B - شعاع ثابت
 # ============================================================
 
@@ -540,6 +606,19 @@ def epc_optimize(
                 )
             elif method_up == "A_R":
                 X[i] = update_penguin_method_A_R(
+                    rng=rng,
+                    x_i=X[i],
+                    x_best=best_x,
+                    mu=mu,
+                    m=m,
+                    a=config.a,
+                    b=config.b,
+                    LB=LB,
+                    UB=UB,
+                    tiny=config.tiny
+                )
+            elif method_up == "A_IMPROVED":
+                X[i] = update_penguin_method_A_improved(
                     rng=rng,
                     x_i=X[i],
                     x_best=best_x,
