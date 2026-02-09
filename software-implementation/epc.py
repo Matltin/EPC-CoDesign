@@ -17,18 +17,19 @@ Method B_R:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Optional, List, Tuple
+from typing import Any, Dict, Optional, List, Tuple
 import time
 import numpy as np
 
 from utils import (
     as_bounds,
     clip_to_bounds,
-    evaluate_population,
     SimpleLogger,
     epc_header_block,
     epc_iter_line,
 )
+
+from objectives import sphere
 
 
 # ------------------------------------------------------------
@@ -256,7 +257,6 @@ def update_penguin_method_B_R(
 # تابع اصلی EPC
 # ------------------------------------------------------------
 def epc_optimize(
-    obj_func: Callable[[np.ndarray], float],
     D: int,
     lb: Any,
     ub: Any,
@@ -282,7 +282,7 @@ def epc_optimize(
     X = initialize_population(rng, config.N, D, LB, UB)
 
     # evaluate initial
-    fitness = evaluate_population(obj_func, X)
+    fitness = np.array([sphere(x) for x in X], dtype=float)
     best_idx = int(np.argmin(fitness))
     best_x = X[best_idx].copy()
     best_f = float(fitness[best_idx])
@@ -326,7 +326,7 @@ def epc_optimize(
             )
 
         # --- ارزیابی ---
-        fitness = evaluate_population(obj_func, X)
+        fitness = np.array([sphere(x) for x in X], dtype=float)
 
         # --- آپدیت بهترین این نسل ---
         curr_best_idx = int(np.argmin(fitness))

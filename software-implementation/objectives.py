@@ -31,26 +31,3 @@ def sphere(x: np.ndarray) -> float:
         مقدار تابع هدف
     """
     return float(np.sum(x * x))
-# ------------------------------------------------------------
-# Rosenbrock Function
-# ------------------------------------------------------------
-# توضیح:
-# - یکی از معروف‌ترین توابع تست
-# - "دره باریک" دارد و برای الگوریتم‌ها چالشی است
-# - کمینه: f=0 در x=[1,1,...,1]
-def rosenbrock(x: np.ndarray) -> float:
-    """
-    Rosenbrock benchmark function:
-        f(x) = sum_{i=1..D-1} [100*(x_{i+1} - x_i^2)^2 + (x_i - 1)^2]
-    Parameters
-    ----------
-    x : np.ndarray
-        بردار جواب با شکل (D,)
-    Returns
-    -------
-    float
-        مقدار تابع هدف
-    """
-    xi = x[:-1]
-    xnext = x[1:]
-    return float(np.sum(100.0 * (xnext - xi * xi) ** 2 + (xi - 1.0) ** 2))

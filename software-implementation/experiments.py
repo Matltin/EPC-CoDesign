@@ -8,17 +8,15 @@ experiments.py
 2) در انتها: EPC Benchmark Summary
 """
 from __future__ import annotations
-from typing import Callable, Any, Dict, List, Tuple
+from typing import Any, List, Tuple
 import numpy as np
 from epc import EPCConfig, epc_optimize, EPCResult
-from objectives import sphere, rosenbrock
 from utils import SimpleLogger, epc_summary_banner
 # ------------------------------------------------------------
 # اجرای چند Run برای یک (Objective, D)
 # ------------------------------------------------------------
 def run_case(
     name: str,
-    obj_func: Callable[[np.ndarray], float],
     D: int,
     lb: Any,
     ub: Any,
@@ -31,7 +29,7 @@ def run_case(
     """
     results: List[EPCResult] = []
     for s in seeds:
-        res = epc_optimize(obj_func=obj_func, D=D, lb=lb, ub=ub, config=cfg, seed=s)
+        res = epc_optimize(D=D, lb=lb, ub=ub, config=cfg, seed=s)
         results.append(res)
     return results
 # ------------------------------------------------------------
@@ -66,24 +64,21 @@ if __name__ == "__main__":
         m0=0.5,
         mu_decay=0.99,
         m_decay=0.99,
-        pairs_per_penguin=6,
+        pairs_per_penguin=15,
         log_enabled=True,
         log_every=1,
         log_path=LOG_PATH,
     )
     # Logger برای Summary انتهایی (هم کنسول هم فایل)
     final_logger = SimpleLogger(LOG_PATH)
-    # تعریف کیس‌ها (مثل نمونه می‌تونی D=10 و D=100 بزنی)
+    # تعریف کیس‌ها (فقط Sphere استفاده می‌شود)
     seeds = [0, 1, 2]  # runs=3 مثل out.txt
-    cases: List[Tuple[str, Callable[[np.ndarray], float], int, Any, Any]] = [
-        ("Sphere", sphere, 10, -5.0, 5.0),
-        ("Sphere", sphere, 100, -5.0, 5.0),
-        ("Rosenbrock", rosenbrock, 10, -2.0, 2.0),
-        ("Rosenbrock", rosenbrock, 100, -2.0, 2.0),
+    cases: List[Tuple[str, int, Any, Any]] = [
+        ("Sphere", 10, -5.0, 5.0),
     ]
     all_results: List[Tuple[str, int, List[EPCResult]]] = []
-    for name, func, D, lb, ub in cases:
-        results = run_case(name, func, D, lb, ub, cfg, seeds)
+    for name, D, lb, ub in cases:
+        results = run_case(name, D, lb, ub, cfg, seeds)
         all_results.append((name, D, results))
     # چاپ Summary مثل نمونه
     final_logger("")

@@ -5,7 +5,6 @@ utils.py
 ابزارهای کمکی عمومی برای پروژه:
 - تبدیل bounds به شکل استاندارد
 - clip به bounds
-- ارزیابی جمعیت
 - Logger ساده برای چاپ + نوشتن در فایل (اختیاری)
 - توابع format برای چاپ لاگ شبیه نمونه out.txt
 """
@@ -13,7 +12,7 @@ utils.py
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable, Optional, Tuple
+from typing import Any, Optional, Tuple
 import numpy as np
 
 
@@ -124,13 +123,3 @@ def clip_to_bounds(X: np.ndarray, LB: np.ndarray, UB: np.ndarray) -> np.ndarray:
     Clip X into [LB, UB] elementwise.
     """
     return np.minimum(np.maximum(X, LB), UB)
-
-
-# ------------------------------------------------------------
-# ارزیابی fitness برای کل جمعیت
-# ------------------------------------------------------------
-def evaluate_population(obj_func: Callable[[np.ndarray], float], X: np.ndarray) -> np.ndarray:
-    """
-    Evaluate objective function for each individual in population.
-    """
-    return np.array([obj_func(x) for x in X], dtype=float)
