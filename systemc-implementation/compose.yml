@@ -1,0 +1,10 @@
+version: "3.9"
+
+services:
+  systemc:
+    build: .
+    container_name: systemc
+    stdin_open: true
+    tty: true
+    volumes:
+      - ./project:/workspace # اتصال پوشه پروژه به داخل کانتینر
