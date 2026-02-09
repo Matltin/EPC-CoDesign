@@ -70,7 +70,7 @@ if __name__ == "__main__":
         m0=0.5,
         mu_decay=0.99,
         m_decay=0.99,
-        update_method="B_R",  # <-- اینجا متود مورد نظر را انتخاب کنید
+        update_method="A_improved",  # <-- اینجا متود مورد نظر را انتخاب کنید
         pairs_per_penguin=6,
         log_enabled=True,
         log_every=1,
