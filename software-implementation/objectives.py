@@ -3,18 +3,14 @@
 objectives.py
 ----------------
 این فایل شامل توابع هدف (Benchmark Functions) است.
-
 هدف:
 - جدا کردن "تعریف مسئله" از "الگوریتم" تا:
   1) خوانایی بالا برود
   2) اضافه کردن تابع هدف جدید آسان شود
   3) برای همطراحی HW/SW بعداً مشخص باشد "ارزیابی تابع هدف" کجاست
 """
-
 from __future__ import annotations
 import numpy as np
-
-
 # ------------------------------------------------------------
 # Sphere Function
 # ------------------------------------------------------------
@@ -25,20 +21,16 @@ def sphere(x: np.ndarray) -> float:
     """
     Sphere benchmark function:
         f(x) = sum(x_i^2)
-
     Parameters
     ----------
     x : np.ndarray
         بردار جواب با شکل (D,)
-
     Returns
     -------
     float
         مقدار تابع هدف
     """
     return float(np.sum(x * x))
-
-
 # ------------------------------------------------------------
 # Rosenbrock Function
 # ------------------------------------------------------------
@@ -50,12 +42,10 @@ def rosenbrock(x: np.ndarray) -> float:
     """
     Rosenbrock benchmark function:
         f(x) = sum_{i=1..D-1} [100*(x_{i+1} - x_i^2)^2 + (x_i - 1)^2]
-
     Parameters
     ----------
     x : np.ndarray
         بردار جواب با شکل (D,)
-
     Returns
     -------
     float

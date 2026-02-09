@@ -2,15 +2,27 @@
 """
 epc.py
 ------
-پیاده‌سازی الگوریتم EPC (Emperor Penguin Colony) با دو روش آپدیت:
+پیاده‌سازی الگوریتم EPC (Emperor Penguin Colony) با چهار روش آپدیت:
 
 Method A:
 - آپدیت مارپیچی روی تمام جفت‌بعدها (p<q)
+- شعاع ثابت (فرمول استاندارد)
+- پیچیدگی تقریبی: O(T * N * D^2)
+
+Method A_R:
+- آپدیت مارپیچی روی تمام جفت‌بعدها (p<q)
+- شعاع آپدیت می‌شود (بر اساس فاصله و Q)
 - پیچیدگی تقریبی: O(T * N * D^2)
 
 Method B:
 - آپدیت مارپیچی فقط روی K جفت‌بعد تصادفی در هر پنگوئن
+- شعاع ثابت (فرمول استاندارد)
 - پیچیدگی تقریبی: O(T * N * K)   (برای D بزرگ خیلی سریع‌تر)
+
+Method B_R:
+- آپدیت مارپیچی فقط روی K جفت‌بعد تصادفی در هر پنگوئن
+- شعاع آپدیت می‌شود (بر اساس فاصله و Q)
+- پیچیدگی تقریبی: O(T * N * K)
 
 این نسخه با ساختار لاگ و منطق کدی که خودت فرستادی سازگار است:
 - بهترین فرد (best_idx) در هر iteration آپدیت نمی‌شود (elitism)
@@ -66,11 +78,13 @@ class EPCConfig:
     # ----------------------------
     # انتخاب روش آپدیت
     # ----------------------------
-    # "A" = تمام جفت‌بعدها
-    # "B" = فقط K جفت‌بعد تصادفی
+    # "A" = تمام جفت‌بعدها + شعاع ثابت
+    # "A_R" = تمام جفت‌بعدها + شعاع آپدیت می‌شود
+    # "B" = فقط K جفت‌بعد تصادفی + شعاع ثابت
+    # "B_R" = فقط K جفت‌بعد تصادفی + شعاع آپدیت می‌شود
     update_method: str = "A"
 
-    # فقط برای روش B:
+    # فقط برای روش B و B_R:
     # تعداد جفت‌بعدهایی که در هر iteration برای هر پنگوئن آپدیت می‌کنیم
     pairs_per_penguin: int = 6
 
@@ -111,7 +125,7 @@ def initialize_population(
 
 
 # ============================================================
-# بخش‌های کمکی برای Method B
+# بخش‌های کمکی برای Method B و B_R
 # ============================================================
 
 def _sample_one_pair(rng: np.random.Generator, D: int) -> Tuple[int, int]:
@@ -136,7 +150,7 @@ def _sample_one_pair(rng: np.random.Generator, D: int) -> Tuple[int, int]:
 
 def _sample_k_unique_pairs(rng: np.random.Generator, D: int, k: int) -> List[Tuple[int, int]]:
     """
-    تولید k جفت‌بعد *منحصر‌به‌فرد* برای Method B.
+    تولید k جفت‌بعد *منحصر‌به‌فرد* برای Method B و B_R.
 
     نکته:
     - اگر k >= تعداد کل جفت‌ها، عملاً برابر Method A می‌شود.
@@ -197,8 +211,54 @@ def _spiral_update_on_pair(
     x_new[q] = r_k * np.sin(theta_k)
 
 
+def _spiral_update_on_pair_with_radius(
+    x_new: np.ndarray,
+    x_best: np.ndarray,
+    p: int,
+    q: int,
+    Q: float,
+    a: float,
+    b: float,
+    tiny: float
+) -> None:
+    """
+    انجام آپدیت مارپیچی روی صفحه‌ی (p,q) با آپدیت شعاع.
+
+    فرمول‌ها (مطابق EPC با تغییر شعاع):
+    theta_i = atan2(x[q], x[p])
+    theta_b = atan2(best[q], best[p])
+    
+    r_i = sqrt(x[p]^2 + x[q]^2)  (شعاع فعلی)
+    r_b = sqrt(best[p]^2 + best[q]^2)  (شعاع بهترین)
+
+    theta_k = (1/b) * ln( (1-Q)*exp(b*theta_b) + Q*exp(b*theta_i) )
+    r_k     = (1-Q) * r_b + Q * r_i  (میانگین وزن‌دار شعاع‌ها)
+
+    x[p] = r_k * cos(theta_k)
+    x[q] = r_k * sin(theta_k)
+    """
+    theta_i = float(np.arctan2(x_new[q], x_new[p]))
+    theta_b = float(np.arctan2(x_best[q], x_best[p]))
+
+    # محاسبه شعاع فعلی و شعاع بهترین
+    r_i = float(np.sqrt(x_new[p]**2 + x_new[q]**2))
+    r_b = float(np.sqrt(x_best[p]**2 + x_best[q]**2))
+
+    term = (1.0 - Q) * np.exp(b * theta_b) + Q * np.exp(b * theta_i)
+    if term < tiny:
+        term = tiny
+
+    theta_k = float((1.0 / b) * np.log(term))
+    
+    # آپدیت شعاع: میانگین وزن‌دار بر اساس Q
+    r_k = float((1.0 - Q) * r_b + Q * r_i)
+
+    x_new[p] = r_k * np.cos(theta_k)
+    x_new[q] = r_k * np.sin(theta_k)
+
+
 # ============================================================
-# Method A
+# Method A - شعاع ثابت
 # ============================================================
 
 def update_penguin_method_A(
@@ -216,7 +276,7 @@ def update_penguin_method_A(
     """
     آپدیت یک فرد با روش A:
     - محاسبه Q
-    - مارپیچ روی تمام جفت‌بعدها
+    - مارپیچ روی تمام جفت‌بعدها (شعاع ثابت)
     - نویز
     - clip
     """
@@ -246,7 +306,55 @@ def update_penguin_method_A(
 
 
 # ============================================================
-# Method B
+# Method A_R - شعاع آپدیت می‌شود
+# ============================================================
+
+def update_penguin_method_A_R(
+    rng: np.random.Generator,
+    x_i: np.ndarray,
+    x_best: np.ndarray,
+    mu: float,
+    m: float,
+    a: float,
+    b: float,
+    LB: np.ndarray,
+    UB: np.ndarray,
+    tiny: float
+) -> np.ndarray:
+    """
+    آپدیت یک فرد با روش A_R:
+    - محاسبه Q
+    - مارپیچ روی تمام جفت‌بعدها (شعاع آپدیت می‌شود)
+    - نویز
+    - clip
+    """
+    D = x_i.shape[0]
+    x_new = x_i.copy()
+
+    # (1) فاصله تا بهترین
+    dist = float(np.linalg.norm(x_best - x_new, ord=2))
+
+    # (2) Q = exp(-mu * dist)  => در (0,1]
+    Q = float(np.exp(-mu * dist))
+    Q = float(np.clip(Q, tiny, 1.0))
+
+    # (3) مارپیچ روی تمام جفت‌بعدها با آپدیت شعاع
+    if D >= 2:
+        for p in range(D - 1):
+            for q in range(p + 1, D):
+                _spiral_update_on_pair_with_radius(x_new, x_best, p, q, Q, a, b, tiny)
+
+    # (4) نویز/Mutation
+    u = rng.uniform(-1.0, 1.0, size=D)
+    x_new = x_new + (m * u)
+
+    # (5) clip
+    x_new = clip_to_bounds(x_new, LB, UB)
+    return x_new
+
+
+# ============================================================
+# Method B - شعاع ثابت
 # ============================================================
 
 def update_penguin_method_B(
@@ -266,7 +374,7 @@ def update_penguin_method_B(
     آپدیت یک فرد با روش B:
     - محاسبه Q
     - انتخاب K جفت‌بعد تصادفی (منحصر به فرد)
-    - مارپیچ فقط روی همان K جفت
+    - مارپیچ فقط روی همان K جفت (شعاع ثابت)
     - نویز
     - clip
 
@@ -289,6 +397,60 @@ def update_penguin_method_B(
     # (4) مارپیچ فقط روی همان جفت‌ها
     for (p, q) in pairs:
         _spiral_update_on_pair(x_new, x_best, p, q, Q, a, b, tiny)
+
+    # (5) نویز/Mutation
+    u = rng.uniform(-1.0, 1.0, size=D)
+    x_new = x_new + (m * u)
+
+    # (6) clip
+    x_new = clip_to_bounds(x_new, LB, UB)
+    return x_new
+
+
+# ============================================================
+# Method B_R - شعاع آپدیت می‌شود
+# ============================================================
+
+def update_penguin_method_B_R(
+    rng: np.random.Generator,
+    x_i: np.ndarray,
+    x_best: np.ndarray,
+    mu: float,
+    m: float,
+    a: float,
+    b: float,
+    LB: np.ndarray,
+    UB: np.ndarray,
+    tiny: float,
+    k_pairs: int
+) -> np.ndarray:
+    """
+    آپدیت یک فرد با روش B_R:
+    - محاسبه Q
+    - انتخاب K جفت‌بعد تصادفی (منحصر به فرد)
+    - مارپیچ فقط روی همان K جفت (شعاع آپدیت می‌شود)
+    - نویز
+    - clip
+
+    مزیت:
+    - برای D بزرگ، خیلی سریع‌تر از روش A_R است.
+    """
+    D = x_i.shape[0]
+    x_new = x_i.copy()
+
+    # (1) فاصله تا بهترین
+    dist = float(np.linalg.norm(x_best - x_new, ord=2))
+
+    # (2) Q
+    Q = float(np.exp(-mu * dist))
+    Q = float(np.clip(Q, tiny, 1.0))
+
+    # (3) انتخاب K جفت‌بعد
+    pairs = _sample_k_unique_pairs(rng, D, k_pairs)
+
+    # (4) مارپیچ فقط روی همان جفت‌ها با آپدیت شعاع
+    for (p, q) in pairs:
+        _spiral_update_on_pair_with_radius(x_new, x_best, p, q, Q, a, b, tiny)
 
     # (5) نویز/Mutation
     u = rng.uniform(-1.0, 1.0, size=D)
@@ -345,12 +507,12 @@ def epc_optimize(
     # چاپ هدر مثل نمونه
     if config.log_enabled:
         logger(epc_header_block(config.N, D, config.Tmax, init_f=best_f))
-        # برای اینکه معلوم باشد روش B فعال است (بدون تغییر utils)
+        # برای اینکه معلوم باشد روش کدام است
         method_up = (config.update_method or "A").upper()
-        if method_up == "B":
-            logger(f"Update Method: B | pairs_per_penguin(k)={config.pairs_per_penguin}")
+        if method_up in ["B", "B_R"]:
+            logger(f"Update Method: {method_up} | pairs_per_penguin(k)={config.pairs_per_penguin}")
         else:
-            logger("Update Method: A")
+            logger(f"Update Method: {method_up}")
 
     # main loop
     it = 0
@@ -363,7 +525,33 @@ def epc_optimize(
             if i == best_idx:
                 continue
 
-            if method_up == "B":
+            if method_up == "A":
+                X[i] = update_penguin_method_A(
+                    rng=rng,
+                    x_i=X[i],
+                    x_best=best_x,
+                    mu=mu,
+                    m=m,
+                    a=config.a,
+                    b=config.b,
+                    LB=LB,
+                    UB=UB,
+                    tiny=config.tiny
+                )
+            elif method_up == "A_R":
+                X[i] = update_penguin_method_A_R(
+                    rng=rng,
+                    x_i=X[i],
+                    x_best=best_x,
+                    mu=mu,
+                    m=m,
+                    a=config.a,
+                    b=config.b,
+                    LB=LB,
+                    UB=UB,
+                    tiny=config.tiny
+                )
+            elif method_up == "B":
                 X[i] = update_penguin_method_B(
                     rng=rng,
                     x_i=X[i],
@@ -377,7 +565,22 @@ def epc_optimize(
                     tiny=config.tiny,
                     k_pairs=config.pairs_per_penguin
                 )
+            elif method_up == "B_R":
+                X[i] = update_penguin_method_B_R(
+                    rng=rng,
+                    x_i=X[i],
+                    x_best=best_x,
+                    mu=mu,
+                    m=m,
+                    a=config.a,
+                    b=config.b,
+                    LB=LB,
+                    UB=UB,
+                    tiny=config.tiny,
+                    k_pairs=config.pairs_per_penguin
+                )
             else:
+                # فالبک به A
                 X[i] = update_penguin_method_A(
                     rng=rng,
                     x_i=X[i],
@@ -426,7 +629,7 @@ def epc_optimize(
         "mu_final": mu,
         "m_final": m,
         "method": method_up,
-        "pairs_per_penguin": (config.pairs_per_penguin if method_up == "B" else None),
+        "pairs_per_penguin": (config.pairs_per_penguin if method_up in ["B", "B_R"] else None),
         "total_pairs": D * (D - 1) // 2,
     }
 
