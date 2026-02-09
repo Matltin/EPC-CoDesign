@@ -58,12 +58,7 @@ if __name__ == "__main__":
     # - توجه: append می‌کند (هر بار اجرا، ته فایل اضافه می‌شود)
     LOG_PATH = "out.txt"   # یا None برای فقط کنسول
     # تنظیمات مطابق سبک نمونه out.txt
-    # برای انتخاب متود، update_method را به یکی از موارد زیر تغییر دهید:
-    # "A" - مارپیچ روی همه جفت‌بعدها + شعاع ثابت
-    # "A_R" - مارپیچ روی همه جفت‌بعدها + شعاع آپدیت می‌شود
-    # "A_improved" - مارپیچ روی همه جفت‌بعدها + شعاع آپدیت + ذخیره تغییرات و میانگین‌گیری
-    # "B" - مارپیچ روی K جفت تصادفی + شعاع ثابت
-    # "B_R" - مارپیچ روی K جفت تصادفی + شعاع آپدیت می‌شود
+    # فقط متود B_R استفاده می‌شود
     cfg = EPCConfig(
         N=20,
         Tmax=100,
@@ -71,7 +66,6 @@ if __name__ == "__main__":
         m0=0.5,
         mu_decay=0.99,
         m_decay=0.99,
-        update_method="A_IMPROVED",  # <-- اینجا متود مورد نظر را انتخاب کنید
         pairs_per_penguin=6,
         log_enabled=True,
         log_every=1,
@@ -83,9 +77,9 @@ if __name__ == "__main__":
     seeds = [0, 1, 2]  # runs=3 مثل out.txt
     cases: List[Tuple[str, Callable[[np.ndarray], float], int, Any, Any]] = [
         ("Sphere", sphere, 10, -5.0, 5.0),
-        # ("Sphere", sphere, 100, -5.0, 5.0),
-        # ("Rosenbrock", rosenbrock, 10, -2.0, 2.0),
-        # ("Rosenbrock", rosenbrock, 100, -2.0, 2.0),
+        ("Sphere", sphere, 100, -5.0, 5.0),
+        ("Rosenbrock", rosenbrock, 10, -2.0, 2.0),
+        ("Rosenbrock", rosenbrock, 100, -2.0, 2.0),
     ]
     all_results: List[Tuple[str, int, List[EPCResult]]] = []
     for name, func, D, lb, ub in cases:
