@@ -78,11 +78,13 @@ inline std::ostream& operator<<(std::ostream& os, const InitRes&) {
 struct FitnessReq {
     int N, D;
     double population[CFG_N][CFG_D];
+    char func_name[32];
 
     FitnessReq() : N(0), D(0) {
         for (int i = 0; i < CFG_N; ++i)
             for (int j = 0; j < CFG_D; ++j)
                 population[i][j] = 0.0;
+        func_name[0] = '\0';
     }
 };
 

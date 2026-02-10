@@ -13,10 +13,10 @@ void ASIC_Fitness::process() {
         // Blocking read: wait for CPU request
         FitnessReq req = req_in.read();
 
-        // Compute: evaluate sphere for all N individuals
+        // Compute: evaluate fitness for all N individuals
         FitnessRes res;
         kernel_evaluate_population(res.fitness, req.population,
-                                   req.N, req.D);
+                                   req.N, req.D, req.func_name);
 
         // Blocking write: send result to CPU
         res_out.write(res);

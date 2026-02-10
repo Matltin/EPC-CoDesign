@@ -44,13 +44,31 @@ inline double kernel_sphere(const double* x, int D) {
     return sum;
 }
 
+// --- Rosenbrock Function ---
+// f(x) = sum_{i=1..D-1} [100*(x_{i+1} - x_i^2)^2 + (x_i - 1)^2]
+inline double kernel_rosenbrock(const double* x, int D) {
+    double sum = 0.0;
+    for (int i = 0; i < D - 1; ++i) {
+        double xi = x[i];
+        double xnext = x[i + 1];
+        sum += 100.0 * (xnext - xi * xi) * (xnext - xi * xi)
+             + (xi - 1.0) * (xi - 1.0);
+    }
+    return sum;
+}
+
 // --- Batch Fitness Evaluation ---
-// Translated from: asic_objectives.cpp::asic_evaluate_population
+// Dispatches to the correct fitness function based on func_name
 inline void kernel_evaluate_population(
-    double* fitness, const double population[][CFG_D], int N, int D
+    double* fitness, const double population[][CFG_D], int N, int D,
+    const char* func_name
 ) {
     for (int i = 0; i < N; ++i) {
-        fitness[i] = kernel_sphere(population[i], D);
+        if (std::string(func_name) == "Rosenbrock") {
+            fitness[i] = kernel_rosenbrock(population[i], D);
+        } else {
+            fitness[i] = kernel_sphere(population[i], D);
+        }
     }
 }
 

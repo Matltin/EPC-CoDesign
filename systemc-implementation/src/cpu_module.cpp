@@ -26,7 +26,7 @@ void CPU_Module::run() {
     { std::ofstream ofs(LOG_PATH, std::ios::trunc); }
 
     // Problem configuration
-    const std::string problem_name = "Sphere";
+    const std::string problem_name = "Rosenbrock"; // Sphere && Rosenbrock
     const int D  = CFG_D;
     const int N  = CFG_N;
     const double lb = CFG_LB;
@@ -80,6 +80,8 @@ void CPU_Module::run() {
         FitnessReq freq;
         freq.N = N;
         freq.D = D;
+        std::strncpy(freq.func_name, problem_name.c_str(), sizeof(freq.func_name) - 1);
+        freq.func_name[sizeof(freq.func_name) - 1] = '\0';
         std::memcpy(freq.population, population, sizeof(population));
 
         fitness_req_out.write(freq);            // CPU -> ASIC_Fitness
