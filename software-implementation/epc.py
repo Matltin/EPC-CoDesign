@@ -4,8 +4,10 @@ epc.py
 ------
 پیاده‌سازی الگوریتم EPC (Emperor Penguin Colony) با متود B_R:
 
-Method B_R:
+Method B_R (Modified - Independent Updates + Averaging):
 - آپدیت مارپیچی فقط روی K جفت‌بعد تصادفی در هر پنگوئن
+- **هر جفت به صورت مستقل روی داده اولیه آپدیت می‌شود**
+- **تغییرات هر بعد میانگین‌گیری می‌شود**
 - شعاع آپدیت می‌شود (بر اساس فاصله و Q)
 - پیچیدگی تقریبی: O(T * N * K)
 
@@ -200,7 +202,7 @@ def _spiral_update_on_pair_with_radius(
 
 
 # ============================================================
-# Method B_R - شعاع آپدیت می‌شود
+# Method B_R - Independent Updates + Averaging
 # ============================================================
 
 def update_penguin_method_B_R(
@@ -217,21 +219,34 @@ def update_penguin_method_B_R(
     k_pairs: int
 ) -> np.ndarray:
     """
-    آپدیت یک فرد با روش B_R:
+    آپدیت یک فرد با روش B_R (Independent Updates + Averaging):
     - محاسبه Q
     - انتخاب K جفت‌بعد تصادفی (منحصر به فرد)
-    - مارپیچ فقط روی همان K جفت (شعاع آپدیت می‌شود)
+    - هر جفت به صورت مستقل روی داده اولیه آپدیت می‌شود
+    - تغییرات هر بعد میانگین‌گیری می‌شود
     - نویز
     - clip
 
+    مثال: اگر جفت‌ها (1,2), (1,3), (3,4) باشند:
+    - جفت (1,2): بعد 1 و 2 آپدیت می‌شوند
+    - جفت (1,3): بعد 1 و 3 آپدیت می‌شوند (از داده اولیه، نه از جفت قبل)
+    - جفت (3,4): بعد 3 و 4 آپدیت می‌شوند (از داده اولیه)
+    
+    نتیجه نهایی:
+    - بعد 1: میانگین دو مقدار از جفت‌های (1,2) و (1,3)
+    - بعد 2: مقدار از جفت (1,2)
+    - بعد 3: میانگین دو مقدار از جفت‌های (1,3) و (3,4)
+    - بعد 4: مقدار از جفت (3,4)
+    - بقیه ابعاد: بدون تغییر
+
     مزیت:
     - برای D بزرگ، خیلی سریع‌تر از روش A_R است.
+    - آپدیت‌ها به هم وابسته نیستند (مستقل هستند)
     """
     D = x_i.shape[0]
-    x_new = x_i.copy()
 
     # (1) فاصله تا بهترین
-    dist = float(np.linalg.norm(x_best - x_new, ord=2))
+    dist = float(np.linalg.norm(x_best - x_i, ord=2))
 
     # (2) Q
     Q = float(np.exp(-mu * dist))
@@ -240,15 +255,34 @@ def update_penguin_method_B_R(
     # (3) انتخاب K جفت‌بعد
     pairs = _sample_k_unique_pairs(rng, D, k_pairs)
 
-    # (4) مارپیچ فقط روی همان جفت‌ها با آپدیت شعاع
+    # (4) ذخیره‌سازی تمام آپدیت‌ها به صورت مستقل
+    # برای هر بعد، لیستی از مقادیر جدید نگه می‌داریم
+    updates_per_dim = {i: [] for i in range(D)}
+    
+    # همه جفت‌ها را به صورت مستقل روی داده اولیه آپدیت می‌کنیم
     for (p, q) in pairs:
-        _spiral_update_on_pair_with_radius(x_new, x_best, p, q, Q, a, b, tiny)
+        # یک کپی موقت برای این جفت
+        x_temp = x_i.copy()
+        
+        # آپدیت مارپیچی روی این جفت
+        _spiral_update_on_pair_with_radius(x_temp, x_best, p, q, Q, a, b, tiny)
+        
+        # ذخیره مقادیر جدید p و q
+        updates_per_dim[p].append(x_temp[p])
+        updates_per_dim[q].append(x_temp[q])
+    
+    # (5) میانگین‌گیری تغییرات برای هر بعد
+    x_new = x_i.copy()
+    for dim in range(D):
+        if updates_per_dim[dim]:  # اگر این بعد در جفت‌ها بود
+            x_new[dim] = float(np.mean(updates_per_dim[dim]))
+        # در غیر این صورت، مقدار اولیه باقی می‌ماند
 
-    # (5) نویز/Mutation
+    # (6) نویز/Mutation
     u = rng.uniform(-1.0, 1.0, size=D)
     x_new = x_new + (m * u)
 
-    # (6) clip
+    # (7) clip
     x_new = clip_to_bounds(x_new, LB, UB)
     return x_new
 
@@ -299,7 +333,7 @@ def epc_optimize(
     if config.log_enabled:
         logger(epc_header_block(config.N, D, config.Tmax, init_f=best_f))
         # برای اینکه معلوم باشد روش کدام است
-        logger(f"Update Method: B_R | pairs_per_penguin(k)={config.pairs_per_penguin}")
+        logger(f"Update Method: B_R (Independent + Averaging) | pairs_per_penguin(k)={config.pairs_per_penguin}")
 
     # main loop
     it = 0
@@ -359,7 +393,7 @@ def epc_optimize(
         "seed": seed,
         "mu_final": mu,
         "m_final": m,
-        "method": "B_R",
+        "method": "B_R (Independent + Averaging)",
         "pairs_per_penguin": config.pairs_per_penguin,
         "total_pairs": D * (D - 1) // 2,
     }

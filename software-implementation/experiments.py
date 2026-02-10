@@ -64,7 +64,7 @@ if __name__ == "__main__":
         m0=0.5,
         mu_decay=0.99,
         m_decay=0.99,
-        pairs_per_penguin=15,
+        pairs_per_penguin=45,
         log_enabled=True,
         log_every=1,
         log_path=LOG_PATH,
