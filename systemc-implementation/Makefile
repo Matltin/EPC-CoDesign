@@ -1,25 +1,41 @@
-# مسیرهای فایل‌های منبع و اجرایی
-SRC = main.cpp cpu.cpp asic.cpp
-OBJ = $(SRC:.cpp=.o)
-EXEC = main
+# ---------------------------
+#   SystemC EPC Makefile
+# ---------------------------
 
-# تنظیمات کامپایلر
+SYSTEMC_HOME ?= /usr/local/systemc
+
 CXX = g++
-CXXFLAGS = -std=c++11 -I/usr/include/systemc
+CXXFLAGS = -std=c++17 -O2 -DSC_INCLUDE_DYNAMIC_PROCESSES \
+           -I$(SYSTEMC_HOME)/include -Iinclude
+LDFLAGS = -L$(SYSTEMC_HOME)/lib-linux64 -lsystemc
 
-# تنظیمات لینک‌دهی با SystemC
-LDFLAGS = -L/usr/lib/systemc -lsystemc
+SRCS = src/main.cpp \
+       src/cpu_module.cpp \
+       src/asic_init.cpp \
+       src/asic_fitness.cpp \
+       src/asic_update.cpp \
+       src/hw_top.cpp
 
-# ساخت پروژه
-all: $(EXEC)
+OBJS = $(SRCS:src/%.cpp=build/%.o)
+HDRS = $(wildcard include/*.h)
 
-$(EXEC): $(OBJ)
-	$(CXX) $(OBJ) -o $(EXEC) $(LDFLAGS)
+TARGET = build/epc_sim
 
-# کامپایل فایل‌های .cpp به .o
-%.o: %.cpp
+all: $(TARGET)
+
+build/%.o: src/%.cpp $(HDRS) | build_dir
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-# حذف فایل‌های تولید شده
+$(TARGET): $(OBJS)
+	$(CXX) $^ -o $@ $(LDFLAGS)
+
+build_dir:
+	@mkdir -p build
+
+run: $(TARGET)
+	LD_LIBRARY_PATH=$(SYSTEMC_HOME)/lib-linux64:$$LD_LIBRARY_PATH ./$(TARGET)
+
 clean:
-	rm -f $(OBJ) $(EXEC)
+	rm -rf build/* out.txt
+
+.PHONY: all run clean build_dir

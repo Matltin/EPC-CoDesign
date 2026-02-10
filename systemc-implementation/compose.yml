@@ -7,4 +7,5 @@ services:
     stdin_open: true
     tty: true
     volumes:
-      - ./project:/workspace # اتصال پوشه پروژه به داخل کانتینر
+      - ./:/workspace
+    working_dir: /workspace
