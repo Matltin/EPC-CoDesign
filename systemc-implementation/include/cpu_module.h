@@ -19,11 +19,11 @@ SC_MODULE(CPU_Module) {
     sc_fifo_out<InitReq>    init_req_out;
     sc_fifo_in<InitRes>     init_res_in;
 
-    // Ports to ASIC_Fitness
-    sc_fifo_out<FitnessReq> fitness_req_out;
-    sc_fifo_in<FitnessRes>  fitness_res_in;
+    // Ports to NUM_ASIC ASIC_Fitness instances
+    sc_vector<sc_fifo_out<FitnessReq>> fitness_req_out;
+    sc_vector<sc_fifo_in<FitnessRes>>  fitness_res_in;
 
-    // Ports to NUM_ASIC ASIC_Update instances (using sc_vector)
+    // Ports to NUM_ASIC ASIC_Update instances
     sc_vector<sc_fifo_out<UpdateReq>> update_req_out;
     sc_vector<sc_fifo_in<UpdateRes>>  update_res_in;
 
@@ -32,6 +32,8 @@ SC_MODULE(CPU_Module) {
 
     CPU_Module(sc_module_name name)
         : sc_module(name)
+        , fitness_req_out("fitness_req_out", NUM_ASIC)
+        , fitness_res_in("fitness_res_in", NUM_ASIC)
         , update_req_out("update_req_out", NUM_ASIC)
         , update_res_in("update_res_in", NUM_ASIC)
     {

@@ -5,10 +5,11 @@
 #include "epc_defs.h"
 
 // ============================================================
-// ASIC Module: Fitness Evaluation (Sphere Function)
+// ASIC Module: Fitness Evaluation (per-penguin, sequential D)
 // ============================================================
-// Evaluates f(x) = sum(x_i^2) for N individuals
-// Hardware: N parallel MAC units + tree reduction
+// Evaluates one penguin at a time, accumulating over D dimensions.
+// NUM_ASIC instances run in parallel for scalable throughput.
+// Supports Sphere and Rosenbrock via func_name dispatch.
 // ============================================================
 
 SC_MODULE(ASIC_Fitness) {

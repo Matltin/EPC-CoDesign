@@ -77,24 +77,42 @@ void CPU_Module::run() {
         // ====================================================
         // STEP 2: Initial fitness evaluation via ASIC_Fitness
         // ====================================================
-        FitnessReq freq;
-        freq.N = N;
-        freq.D = D;
-        std::strncpy(freq.func_name, problem_name.c_str(), sizeof(freq.func_name) - 1);
-        freq.func_name[sizeof(freq.func_name) - 1] = '\0';
-        std::memcpy(freq.population, population, sizeof(population));
+        // Distribute penguins round-robin to NUM_ASIC fitness units
+        double fitness[CFG_N];
+        {
+            int fit_count[NUM_ASIC];
+            for (int a = 0; a < NUM_ASIC; ++a) fit_count[a] = 0;
 
-        fitness_req_out.write(freq);            // CPU -> ASIC_Fitness
-        FitnessRes fres = fitness_res_in.read(); // ASIC_Fitness -> CPU
+            for (int i = 0; i < N; ++i) {
+                int target = i % NUM_ASIC;
+
+                FitnessReq freq;
+                freq.penguin_idx = i;
+                freq.D = D;
+                std::memcpy(freq.x, population[i], sizeof(double) * D);
+                std::strncpy(freq.func_name, problem_name.c_str(), sizeof(freq.func_name) - 1);
+                freq.func_name[sizeof(freq.func_name) - 1] = '\0';
+
+                fitness_req_out[target].write(freq);
+                fit_count[target]++;
+            }
+
+            for (int a = 0; a < NUM_ASIC; ++a) {
+                for (int c = 0; c < fit_count[a]; ++c) {
+                    FitnessRes fres = fitness_res_in[a].read();
+                    fitness[fres.penguin_idx] = fres.fitness;
+                }
+            }
+        }
 
         // ====================================================
         // STEP 3: Find initial best
         // ====================================================
         int best_idx = 0;
-        double best_f = fres.fitness[0];
+        double best_f = fitness[0];
         for (int i = 1; i < N; ++i) {
-            if (fres.fitness[i] < best_f) {
-                best_f = fres.fitness[i];
+            if (fitness[i] < best_f) {
+                best_f = fitness[i];
                 best_idx = i;
             }
         }
@@ -195,17 +213,39 @@ void CPU_Module::run() {
                 current_seed += N * 10000;  // Advance seed
             }
 
-            // --- Re-evaluate fitness via ASIC_Fitness ---
-            std::memcpy(freq.population, population, sizeof(population));
-            fitness_req_out.write(freq);
-            fres = fitness_res_in.read();
+            // --- Re-evaluate fitness via ASIC_Fitness (parallel) ---
+            {
+                int fit_count[NUM_ASIC];
+                for (int a = 0; a < NUM_ASIC; ++a) fit_count[a] = 0;
+
+                for (int i = 0; i < N; ++i) {
+                    int target = i % NUM_ASIC;
+
+                    FitnessReq freq;
+                    freq.penguin_idx = i;
+                    freq.D = D;
+                    std::memcpy(freq.x, population[i], sizeof(double) * D);
+                    std::strncpy(freq.func_name, problem_name.c_str(), sizeof(freq.func_name) - 1);
+                    freq.func_name[sizeof(freq.func_name) - 1] = '\0';
+
+                    fitness_req_out[target].write(freq);
+                    fit_count[target]++;
+                }
+
+                for (int a = 0; a < NUM_ASIC; ++a) {
+                    for (int c = 0; c < fit_count[a]; ++c) {
+                        FitnessRes fres = fitness_res_in[a].read();
+                        fitness[fres.penguin_idx] = fres.fitness;
+                    }
+                }
+            }
 
             // --- Update best ---
             int curr_best_idx = 0;
-            double curr_best_f = fres.fitness[0];
+            double curr_best_f = fitness[0];
             for (int i = 1; i < N; ++i) {
-                if (fres.fitness[i] < curr_best_f) {
-                    curr_best_f = fres.fitness[i];
+                if (fitness[i] < curr_best_f) {
+                    curr_best_f = fitness[i];
                     curr_best_idx = i;
                 }
             }

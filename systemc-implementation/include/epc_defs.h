@@ -74,34 +74,32 @@ inline std::ostream& operator<<(std::ostream& os, const InitRes&) {
     return os << "InitRes";
 }
 
-// --- Fitness Evaluation ---
+// --- Fitness Evaluation (per-penguin) ---
 struct FitnessReq {
-    int N, D;
-    double population[CFG_N][CFG_D];
+    int penguin_idx;
+    int D;
+    double x[CFG_D];
     char func_name[32];
 
-    FitnessReq() : N(0), D(0) {
-        for (int i = 0; i < CFG_N; ++i)
-            for (int j = 0; j < CFG_D; ++j)
-                population[i][j] = 0.0;
+    FitnessReq() : penguin_idx(0), D(0) {
+        for (int i = 0; i < CFG_D; ++i) x[i] = 0.0;
         func_name[0] = '\0';
     }
 };
 
-inline std::ostream& operator<<(std::ostream& os, const FitnessReq&) {
-    return os << "FitnessReq";
+inline std::ostream& operator<<(std::ostream& os, const FitnessReq& r) {
+    return os << "FitnessReq[" << r.penguin_idx << "]";
 }
 
 struct FitnessRes {
-    double fitness[CFG_N];
+    int penguin_idx;
+    double fitness;
 
-    FitnessRes() {
-        for (int i = 0; i < CFG_N; ++i) fitness[i] = 0.0;
-    }
+    FitnessRes() : penguin_idx(0), fitness(0.0) {}
 };
 
-inline std::ostream& operator<<(std::ostream& os, const FitnessRes&) {
-    return os << "FitnessRes";
+inline std::ostream& operator<<(std::ostream& os, const FitnessRes& r) {
+    return os << "FitnessRes[" << r.penguin_idx << "]";
 }
 
 // --- Penguin Update ---

@@ -57,21 +57,6 @@ inline double kernel_rosenbrock(const double* x, int D) {
     return sum;
 }
 
-// --- Batch Fitness Evaluation ---
-// Dispatches to the correct fitness function based on func_name
-inline void kernel_evaluate_population(
-    double* fitness, const double population[][CFG_D], int N, int D,
-    const char* func_name
-) {
-    for (int i = 0; i < N; ++i) {
-        if (std::string(func_name) == "Rosenbrock") {
-            fitness[i] = kernel_rosenbrock(population[i], D);
-        } else {
-            fitness[i] = kernel_sphere(population[i], D);
-        }
-    }
-}
-
 // --- Pair Sampling Helpers ---
 // Translated from: asic_sampling.cpp
 
