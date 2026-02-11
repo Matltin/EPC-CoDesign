@@ -184,11 +184,25 @@ inline void kernel_update_penguin(
 
     // (2) Compute distance to best (CPU in reference, ASIC here)
     double dist = 0.0;
-    for (int d = 0; d < D; ++d) {
-        double diff = x_best[d] - x_new[d];
-        dist += diff * diff;
+    // for (int d = 0; d < D; ++d) {
+    //     double diff = x_best[d] - x_new[d];
+    //     dist += diff * diff;
+    // }
+    // dist = std::sqrt(dist);
+
+    std::vector<double> all_distances;
+
+    for (int d = 0; d < D; d++) {
+        for (int s_d = d + 1; s_d < D; s_d++) {
+            if (d == s_d) continue;
+            double teta_x_best = std::atan2(x_best[d], x_best[s_d]);
+            double teta_x_new = std::atan2(x_new[d], x_new[s_d]);
+            double weighted_dist = (a / b) * std::sqrt(b*b + 1) * (std::exp(b * teta_x_best) + std::exp(teta_x_new));
+            all_distances.push_back(weighted_dist);
+        }
     }
-    dist = std::sqrt(dist);
+
+    dist = std::accumulate(all_distances.begin(), all_distances.end(), 0.0) / all_distances.size();
 
     // (3) Compute Q
     double Q = std::exp(-mu * dist);

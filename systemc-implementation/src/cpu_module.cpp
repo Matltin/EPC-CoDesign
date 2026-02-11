@@ -29,7 +29,7 @@ void CPU_Module::run()
     }
 
     // Problem configuration
-    const std::string problem_name = "Sphere"; // Sphere && Rosenbrock
+    const std::string problem_name = "Rosenbrock"; // Sphere && Rosenbrock
     const int D = CFG_D;
     const int N = CFG_N;
     const double lb = CFG_LB;
