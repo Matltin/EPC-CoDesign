@@ -19,16 +19,19 @@
 //   - Produces output matching the reference out.txt
 // ============================================================
 
-void CPU_Module::run() {
+void CPU_Module::run()
+{
     const std::string LOG_PATH = "out.txt";
 
     // Clear log file at start
-    { std::ofstream ofs(LOG_PATH, std::ios::trunc); }
+    {
+        std::ofstream ofs(LOG_PATH, std::ios::trunc);
+    }
 
     // Problem configuration
-    const std::string problem_name = "Rosenbrock"; // Sphere && Rosenbrock
-    const int D  = CFG_D;
-    const int N  = CFG_N;
+    const std::string problem_name = "Sphere"; // Sphere && Rosenbrock
+    const int D = CFG_D;
+    const int N = CFG_N;
     const double lb = CFG_LB;
     const double ub = CFG_UB;
 
@@ -38,7 +41,8 @@ void CPU_Module::run() {
 
     // Bounds arrays
     double LB[CFG_D], UB[CFG_D];
-    for (int d = 0; d < D; ++d) {
+    for (int d = 0; d < D; ++d)
+    {
         LB[d] = lb;
         UB[d] = ub;
     }
@@ -52,7 +56,8 @@ void CPU_Module::run() {
     // ========================================================
     // Run Loop
     // ========================================================
-    for (int run_idx = 0; run_idx < num_runs; ++run_idx) {
+    for (int run_idx = 0; run_idx < num_runs; ++run_idx)
+    {
         unsigned int seed = seeds[run_idx];
 
         SimpleLogger logger(LOG_PATH);
@@ -67,8 +72,8 @@ void CPU_Module::run() {
         std::memcpy(ireq.LB, LB, sizeof(double) * D);
         std::memcpy(ireq.UB, UB, sizeof(double) * D);
 
-        init_req_out.write(ireq);           // CPU -> ASIC_Init
-        InitRes ires = init_res_in.read();  // ASIC_Init -> CPU
+        init_req_out.write(ireq);          // CPU -> ASIC_Init
+        InitRes ires = init_res_in.read(); // ASIC_Init -> CPU
 
         // Local population copy
         double population[CFG_N][CFG_D];
@@ -81,9 +86,11 @@ void CPU_Module::run() {
         double fitness[CFG_N];
         {
             int fit_count[NUM_ASIC];
-            for (int a = 0; a < NUM_ASIC; ++a) fit_count[a] = 0;
+            for (int a = 0; a < NUM_ASIC; ++a)
+                fit_count[a] = 0;
 
-            for (int i = 0; i < N; ++i) {
+            for (int i = 0; i < N; ++i)
+            {
                 int target = i % NUM_ASIC;
 
                 FitnessReq freq;
@@ -97,8 +104,10 @@ void CPU_Module::run() {
                 fit_count[target]++;
             }
 
-            for (int a = 0; a < NUM_ASIC; ++a) {
-                for (int c = 0; c < fit_count[a]; ++c) {
+            for (int a = 0; a < NUM_ASIC; ++a)
+            {
+                for (int c = 0; c < fit_count[a]; ++c)
+                {
                     FitnessRes fres = fitness_res_in[a].read();
                     fitness[fres.penguin_idx] = fres.fitness;
                 }
@@ -110,8 +119,10 @@ void CPU_Module::run() {
         // ====================================================
         int best_idx = 0;
         double best_f = fitness[0];
-        for (int i = 1; i < N; ++i) {
-            if (fitness[i] < best_f) {
+        for (int i = 1; i < N; ++i)
+        {
+            if (fitness[i] < best_f)
+            {
                 best_f = fitness[i];
                 best_idx = i;
             }
@@ -121,7 +132,7 @@ void CPU_Module::run() {
 
         // Dynamic parameters
         double mu = CFG_MU0;
-        double m  = CFG_M0;
+        double m = CFG_M0;
 
         // ====================================================
         // STEP 4: Print header (matching reference format)
@@ -140,13 +151,17 @@ void CPU_Module::run() {
         // STEP 5: Main Iteration Loop
         // ====================================================
         int it = 0;
-        for (it = 1; it <= CFG_TMAX; ++it) {
+        for (it = 1; it <= CFG_TMAX; ++it)
+        {
 
             // --- Update all penguins via ASIC_Update ---
-            if (NUM_ASIC == 1) {
+            if (NUM_ASIC == 1)
+            {
                 // Sequential mode: preserve exact seed chain
-                for (int i = 0; i < N; ++i) {
-                    if (i == best_idx) continue;  // Elitism
+                for (int i = 0; i < N; ++i)
+                {
+                    if (i == best_idx)
+                        continue; // Elitism
 
                     UpdateReq ureq;
                     ureq.penguin_idx = i;
@@ -156,28 +171,33 @@ void CPU_Module::run() {
                     std::memcpy(ureq.LB, LB, sizeof(double) * D);
                     std::memcpy(ureq.UB, UB, sizeof(double) * D);
                     ureq.mu = mu;
-                    ureq.m  = m;
-                    ureq.a  = CFG_A;
-                    ureq.b  = CFG_B;
+                    ureq.m = m;
+                    ureq.a = CFG_A;
+                    ureq.b = CFG_B;
                     ureq.tiny = CFG_TINY;
                     ureq.k_pairs = CFG_K;
                     ureq.seed = current_seed;
 
-                    update_req_out[0].write(ureq);                // CPU -> ASIC
-                    UpdateRes ures = update_res_in[0].read();     // ASIC -> CPU
+                    update_req_out[0].write(ureq);            // CPU -> ASIC
+                    UpdateRes ures = update_res_in[0].read(); // ASIC -> CPU
 
                     std::memcpy(population[ures.penguin_idx],
                                 ures.x_new, sizeof(double) * D);
                     current_seed = ures.seed_out;
                 }
-            } else {
+            }
+            else
+            {
                 // Parallel mode: round-robin to NUM_ASIC units
                 int count_per_asic[NUM_ASIC];
-                for (int a = 0; a < NUM_ASIC; ++a) count_per_asic[a] = 0;
+                for (int a = 0; a < NUM_ASIC; ++a)
+                    count_per_asic[a] = 0;
 
                 int assign = 0;
-                for (int i = 0; i < N; ++i) {
-                    if (i == best_idx) continue;
+                for (int i = 0; i < N; ++i)
+                {
+                    if (i == best_idx)
+                        continue;
 
                     int target = assign % NUM_ASIC;
 
@@ -189,12 +209,12 @@ void CPU_Module::run() {
                     std::memcpy(ureq.LB, LB, sizeof(double) * D);
                     std::memcpy(ureq.UB, UB, sizeof(double) * D);
                     ureq.mu = mu;
-                    ureq.m  = m;
-                    ureq.a  = CFG_A;
-                    ureq.b  = CFG_B;
+                    ureq.m = m;
+                    ureq.a = CFG_A;
+                    ureq.b = CFG_B;
                     ureq.tiny = CFG_TINY;
                     ureq.k_pairs = CFG_K;
-                    ureq.seed = current_seed + i * 9973;  // Per-penguin seed
+                    ureq.seed = current_seed + i * 9973; // Per-penguin seed
 
                     update_req_out[target].write(ureq);
                     count_per_asic[target]++;
@@ -202,23 +222,27 @@ void CPU_Module::run() {
                 }
 
                 // Collect all results
-                for (int a = 0; a < NUM_ASIC; ++a) {
-                    for (int c = 0; c < count_per_asic[a]; ++c) {
+                for (int a = 0; a < NUM_ASIC; ++a)
+                {
+                    for (int c = 0; c < count_per_asic[a]; ++c)
+                    {
                         UpdateRes ures = update_res_in[a].read();
                         std::memcpy(population[ures.penguin_idx],
                                     ures.x_new, sizeof(double) * D);
                     }
                 }
 
-                current_seed += N * 10000;  // Advance seed
+                current_seed += N * 10000; // Advance seed
             }
 
             // --- Re-evaluate fitness via ASIC_Fitness (parallel) ---
             {
                 int fit_count[NUM_ASIC];
-                for (int a = 0; a < NUM_ASIC; ++a) fit_count[a] = 0;
+                for (int a = 0; a < NUM_ASIC; ++a)
+                    fit_count[a] = 0;
 
-                for (int i = 0; i < N; ++i) {
+                for (int i = 0; i < N; ++i)
+                {
                     int target = i % NUM_ASIC;
 
                     FitnessReq freq;
@@ -232,8 +256,10 @@ void CPU_Module::run() {
                     fit_count[target]++;
                 }
 
-                for (int a = 0; a < NUM_ASIC; ++a) {
-                    for (int c = 0; c < fit_count[a]; ++c) {
+                for (int a = 0; a < NUM_ASIC; ++a)
+                {
+                    for (int c = 0; c < fit_count[a]; ++c)
+                    {
                         FitnessRes fres = fitness_res_in[a].read();
                         fitness[fres.penguin_idx] = fres.fitness;
                     }
@@ -243,10 +269,26 @@ void CPU_Module::run() {
             // --- Update best ---
             int curr_best_idx = 0;
             double curr_best_f = fitness[0];
-            for (int i = 1; i < N; ++i) {
-                if (fitness[i] < curr_best_f) {
-                    curr_best_f = fitness[i];
-                    curr_best_idx = i;
+            if (MAX_FITNES)
+            {
+                for (int i = 1; i < N; ++i)
+                {
+                    if (fitness[i] > curr_best_f)
+                    {
+                        curr_best_f = fitness[i];
+                        curr_best_idx = i;
+                    }
+                }
+            }
+            else
+            {
+                for (int i = 1; i < N; ++i)
+                {
+                    if (fitness[i] < curr_best_f)
+                    {
+                        curr_best_f = fitness[i];
+                        curr_best_idx = i;
+                    }
                 }
             }
 
@@ -258,13 +300,14 @@ void CPU_Module::run() {
             logger.log(epc_iter_line(it, CFG_TMAX, best_f, mu, m));
 
             // --- Check convergence ---
-            if (best_f <= CFG_EPSILON) {
+            if (best_f <= CFG_EPSILON)
+            {
                 break;
             }
 
             // --- Decay parameters ---
             mu *= CFG_MU_DECAY;
-            m  *= CFG_M_DECAY;
+            m *= CFG_M_DECAY;
         }
 
         // Record result

@@ -28,6 +28,7 @@ constexpr double CFG_B        =  0.5;
 constexpr double CFG_TINY     =  1e-300;
 constexpr double CFG_EPSILON  =  1e-12;
 constexpr int    FIFO_DEPTH   = CFG_N;
+constexpr bool   MAX_FITNES   = false;
 
 // ============================================================
 // DimPair: pair of dimension indices (p < q)
